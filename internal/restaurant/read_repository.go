@@ -36,7 +36,7 @@ func NewReadRepository(nc *nats.EncodedConn, mongoDB *mongo.Database, log zerolo
 		return
 	}
 
-	err = repo.LoadFromEventsStore()
+	err = repo.loadFromEventsStore()
 	if err != nil {
 		err = fmt.Errorf("cannot retrieve events from event store: %w", err)
 		return
@@ -58,60 +58,36 @@ func NewReadRepository(nc *nats.EncodedConn, mongoDB *mongo.Database, log zerolo
 		return
 	}
 
-	return
-}
-
-func (repo *ReadRepository) LoadFromEventsStore() (err error) {
-	var eventsByAggregateID []struct {
-		ID     string `bson:"_id" json:"id,omitempty"`
-		Events []struct {
-			Type string `bson:"type,omitempty" json:"type,omitempty"`
-			Data bson.M `bson:"data,omitempty" json:"data,omitempty"`
-		} `bson:"events" json:"events,omitempty"`
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryCreated{}), repo.handleEventMenuCategoryCreated)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuCategoryCreated: %w", err)
+		return
 	}
-	{
-		groupStage := bson.D{{
-			Key: "$group",
-			Value: bson.D{
-				{Key: "_id", Value: "$aggregateID"},
-				{Key: "events", Value: bson.D{{
-					Key: "$push", Value: bson.D{
-						{Key: "type", Value: "$type"},
-						{Key: "data", Value: "$data"},
-					}},
-				}},
-			}},
-		}
-		var cursor *mongo.Cursor
-		cursor, err = repo.eventsCollection.Aggregate(context.Background(), mongo.Pipeline{groupStage})
-		if err != nil {
-			err = fmt.Errorf("cannot get events from store: %w", err)
-			return
-		}
-		cursor.All(context.Background(), &eventsByAggregateID)
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryUpdated{}), repo.handleEventMenuCategoryUpdated)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuCategoryUpdated: %w", err)
+		return
+	}
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryDeleted{}), repo.handleEventMenuCategoryDeleted)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuCategoryDeleted: %w", err)
+		return
 	}
 
-	repo.log.Trace().Interface("events", eventsByAggregateID).Msg("loaded events from store")
-
-	for _, aggregate := range eventsByAggregateID {
-		for _, eventRaw := range aggregate.Events {
-			var event Event
-
-			switch eventRaw.Type {
-			case "created":
-				event = EventCreatedFromData(eventRaw.Data)
-			case "updated":
-				event = EventUpdatedFromData(eventRaw.Data)
-			case "deleted":
-				repo.log.Warn().Str("event_type", eventRaw.Type).Msg("applying deleted")
-				event = EventDeletedFromData(eventRaw.Data)
-			}
-
-			err = repo.applyEvent(event)
-			if err != nil {
-				break
-			}
-		}
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemCreated{}), repo.handleEventMenuItemCreated)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuItemCreated: %w", err)
+		return
+	}
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemUpdated{}), repo.handleEventMenuItemUpdated)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuItemUpdated: %w", err)
+		return
+	}
+	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemDeleted{}), repo.handleEventMenuItemDeleted)
+	if err != nil {
+		err = fmt.Errorf("cannot create subscription for EventMenuItemDeleted: %w", err)
+		return
 	}
 
 	return
@@ -119,15 +95,6 @@ func (repo *ReadRepository) LoadFromEventsStore() (err error) {
 
 func (repo *ReadRepository) getTopic(event Event) string {
 	return fmt.Sprintf("%s.%s", event.EventCategory(), event.EventType())
-}
-
-func (repo *ReadRepository) getEventModel(event Event) bson.D {
-	return bson.D{
-		{Key: "category", Value: event.EventCategory()},
-		{Key: "type", Value: event.EventType()},
-		{Key: "aggregateID", Value: event.AggregateID()},
-		{Key: "data", Value: event.Data()},
-	}
 }
 
 func (repo *ReadRepository) applyEvent(event Event) (err error) {
@@ -154,8 +121,74 @@ func (repo *ReadRepository) applyEvent(event Event) (err error) {
 		err = repo.applyEventUpdated(e)
 	case *EventDeleted:
 		err = repo.applyEventDeleted(e)
+
+	case *EventMenuCategoryCreated:
+		err = repo.applyEventMenuCategoryCreated(e)
+	case *EventMenuCategoryUpdated:
+		err = repo.applyEventMenuCategoryUpdated(e)
+	case *EventMenuCategoryDeleted:
+		err = repo.applyEventMenuCategoryDeleted(e)
+
+	case *EventMenuItemCreated:
+		err = repo.applyEventMenuItemCreated(e)
+	case *EventMenuItemUpdated:
+		err = repo.applyEventMenuItemUpdated(e)
+	case *EventMenuItemDeleted:
+		err = repo.applyEventMenuItemDeleted(e)
+
 	default:
 		err = errors.New("event not supported")
+	}
+
+	return
+}
+
+func (repo *ReadRepository) loadFromEventsStore() (err error) {
+	var aggregates []AggregateDB
+	{
+		var cursor *mongo.Cursor
+		cursor, err = repo.eventsCollection.Find(context.Background(), bson.M{})
+		if err != nil {
+			err = fmt.Errorf("cannot get events from store: %w", err)
+			return
+		}
+		cursor.All(context.Background(), &aggregates)
+	}
+
+	repo.log.Trace().Interface("events", aggregates).Msg("loaded events from store")
+
+	for _, aggregate := range aggregates {
+		for _, eventDB := range aggregate.Events {
+			var event Event
+
+			switch eventDB.Type {
+			case "created":
+				event = EventCreatedFromData(eventDB.Data)
+			case "updated":
+				event = EventUpdatedFromData(eventDB.Data)
+			case "deleted":
+				event = EventDeletedFromData(eventDB.Data)
+
+			case "menucategorycreated":
+				event = EventMenuCategoryCreatedFromData(eventDB.Data)
+			case "menucategoryupdated":
+				event = EventMenuCategoryUpdatedFromData(eventDB.Data)
+			case "menucategorydeleted":
+				event = EventMenuCategoryDeletedFromData(eventDB.Data)
+
+			case "menuitemcreated":
+				event = EventMenuItemCreatedFromData(eventDB.Data)
+			case "menuitemupdated":
+				event = EventMenuItemUpdatedFromData(eventDB.Data)
+			case "menuitemdeleted":
+				event = EventMenuItemDeletedFromData(eventDB.Data)
+			}
+
+			err = repo.applyEvent(event)
+			if err != nil {
+				break
+			}
+		}
 	}
 
 	return
@@ -215,6 +248,151 @@ func (repo *ReadRepository) applyEventDeleted(event *EventDeleted) (err error) {
 
 	_, err = repo.restaurantsCollection.DeleteOne(context.Background(), bson.M{"_id": event.ID})
 	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuCategoryCreated(eventPb *restaurant_pb.MenuCategoryCreated) error {
+	return repo.applyEventMenuCategoryCreated(EventMenuCategoryCreatedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuCategoryCreated(event *EventMenuCategoryCreated) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuCategoryUpdated(eventPb *restaurant_pb.MenuCategoryUpdated) error {
+	return repo.applyEventMenuCategoryUpdated(EventMenuCategoryUpdatedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuCategoryUpdated(event *EventMenuCategoryUpdated) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuCategoryDeleted(eventPb *restaurant_pb.MenuCategoryDeleted) error {
+	return repo.applyEventMenuCategoryDeleted(EventMenuCategoryDeletedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuCategoryDeleted(event *EventMenuCategoryDeleted) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuItemCreated(eventPb *restaurant_pb.MenuItemCreated) error {
+	return repo.applyEventMenuItemCreated(EventMenuItemCreatedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuItemCreated(event *EventMenuItemCreated) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuItemUpdated(eventPb *restaurant_pb.MenuItemUpdated) error {
+	return repo.applyEventMenuItemUpdated(EventMenuItemUpdatedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuItemUpdated(event *EventMenuItemUpdated) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	return
+}
+
+func (repo *ReadRepository) handleEventMenuItemDeleted(eventPb *restaurant_pb.MenuItemDeleted) error {
+	return repo.applyEventMenuItemDeleted(EventMenuItemDeletedFromProto(eventPb))
+}
+
+func (repo *ReadRepository) applyEventMenuItemDeleted(event *EventMenuItemDeleted) (err error) {
+	res := repo.restaurantsCollection.FindOne(context.Background(), bson.M{"_id": event.RestaurantID})
+	if res.Err() != nil {
+		err = res.Err()
+		return
+	}
+
+	r := &Restaurant{}
+	res.Decode(&r)
+	repo.log.Trace().Interface("event", event).Interface("restaurant", r).Msg("pre-apply menuitemdeleted event")
+	r.ApplyEvent(event)
+
+	res = repo.restaurantsCollection.FindOneAndReplace(context.Background(), bson.M{"_id": event.RestaurantID}, r)
+	if res.Err() != nil {
+		err = res.Err()
 		return
 	}
 

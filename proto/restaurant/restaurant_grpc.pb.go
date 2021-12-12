@@ -21,6 +21,12 @@ type CommandServiceClient interface {
 	Create(ctx context.Context, in *CmdRestaurantCreate, opts ...grpc.CallOption) (*RestaurantCreated, error)
 	Update(ctx context.Context, in *CmdRestaurantUpdate, opts ...grpc.CallOption) (*RestaurantUpdated, error)
 	Delete(ctx context.Context, in *CmdRestaurantDelete, opts ...grpc.CallOption) (*RestaurantDeleted, error)
+	CreateMenuCategory(ctx context.Context, in *CmdMenuCategoryCreate, opts ...grpc.CallOption) (*MenuCategoryCreated, error)
+	UpdateMenuCategory(ctx context.Context, in *CmdMenuCategoryUpdate, opts ...grpc.CallOption) (*MenuCategoryUpdated, error)
+	DeleteMenuCategory(ctx context.Context, in *CmdMenuCategoryDelete, opts ...grpc.CallOption) (*MenuCategoryDeleted, error)
+	CreateMenuItem(ctx context.Context, in *CmdMenuItemCreate, opts ...grpc.CallOption) (*MenuItemCreated, error)
+	UpdateMenuItem(ctx context.Context, in *CmdMenuItemUpdate, opts ...grpc.CallOption) (*MenuItemUpdated, error)
+	DeleteMenuItem(ctx context.Context, in *CmdMenuItemDelete, opts ...grpc.CallOption) (*MenuItemDeleted, error)
 }
 
 type commandServiceClient struct {
@@ -58,6 +64,60 @@ func (c *commandServiceClient) Delete(ctx context.Context, in *CmdRestaurantDele
 	return out, nil
 }
 
+func (c *commandServiceClient) CreateMenuCategory(ctx context.Context, in *CmdMenuCategoryCreate, opts ...grpc.CallOption) (*MenuCategoryCreated, error) {
+	out := new(MenuCategoryCreated)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/CreateMenuCategory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandServiceClient) UpdateMenuCategory(ctx context.Context, in *CmdMenuCategoryUpdate, opts ...grpc.CallOption) (*MenuCategoryUpdated, error) {
+	out := new(MenuCategoryUpdated)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/UpdateMenuCategory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandServiceClient) DeleteMenuCategory(ctx context.Context, in *CmdMenuCategoryDelete, opts ...grpc.CallOption) (*MenuCategoryDeleted, error) {
+	out := new(MenuCategoryDeleted)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/DeleteMenuCategory", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandServiceClient) CreateMenuItem(ctx context.Context, in *CmdMenuItemCreate, opts ...grpc.CallOption) (*MenuItemCreated, error) {
+	out := new(MenuItemCreated)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/CreateMenuItem", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandServiceClient) UpdateMenuItem(ctx context.Context, in *CmdMenuItemUpdate, opts ...grpc.CallOption) (*MenuItemUpdated, error) {
+	out := new(MenuItemUpdated)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/UpdateMenuItem", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *commandServiceClient) DeleteMenuItem(ctx context.Context, in *CmdMenuItemDelete, opts ...grpc.CallOption) (*MenuItemDeleted, error) {
+	out := new(MenuItemDeleted)
+	err := c.cc.Invoke(ctx, "/restaurant.CommandService/DeleteMenuItem", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CommandServiceServer is the server API for CommandService service.
 // All implementations must embed UnimplementedCommandServiceServer
 // for forward compatibility
@@ -65,6 +125,12 @@ type CommandServiceServer interface {
 	Create(context.Context, *CmdRestaurantCreate) (*RestaurantCreated, error)
 	Update(context.Context, *CmdRestaurantUpdate) (*RestaurantUpdated, error)
 	Delete(context.Context, *CmdRestaurantDelete) (*RestaurantDeleted, error)
+	CreateMenuCategory(context.Context, *CmdMenuCategoryCreate) (*MenuCategoryCreated, error)
+	UpdateMenuCategory(context.Context, *CmdMenuCategoryUpdate) (*MenuCategoryUpdated, error)
+	DeleteMenuCategory(context.Context, *CmdMenuCategoryDelete) (*MenuCategoryDeleted, error)
+	CreateMenuItem(context.Context, *CmdMenuItemCreate) (*MenuItemCreated, error)
+	UpdateMenuItem(context.Context, *CmdMenuItemUpdate) (*MenuItemUpdated, error)
+	DeleteMenuItem(context.Context, *CmdMenuItemDelete) (*MenuItemDeleted, error)
 	mustEmbedUnimplementedCommandServiceServer()
 }
 
@@ -80,6 +146,24 @@ func (UnimplementedCommandServiceServer) Update(context.Context, *CmdRestaurantU
 }
 func (UnimplementedCommandServiceServer) Delete(context.Context, *CmdRestaurantDelete) (*RestaurantDeleted, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedCommandServiceServer) CreateMenuCategory(context.Context, *CmdMenuCategoryCreate) (*MenuCategoryCreated, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateMenuCategory not implemented")
+}
+func (UnimplementedCommandServiceServer) UpdateMenuCategory(context.Context, *CmdMenuCategoryUpdate) (*MenuCategoryUpdated, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateMenuCategory not implemented")
+}
+func (UnimplementedCommandServiceServer) DeleteMenuCategory(context.Context, *CmdMenuCategoryDelete) (*MenuCategoryDeleted, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteMenuCategory not implemented")
+}
+func (UnimplementedCommandServiceServer) CreateMenuItem(context.Context, *CmdMenuItemCreate) (*MenuItemCreated, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateMenuItem not implemented")
+}
+func (UnimplementedCommandServiceServer) UpdateMenuItem(context.Context, *CmdMenuItemUpdate) (*MenuItemUpdated, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateMenuItem not implemented")
+}
+func (UnimplementedCommandServiceServer) DeleteMenuItem(context.Context, *CmdMenuItemDelete) (*MenuItemDeleted, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteMenuItem not implemented")
 }
 func (UnimplementedCommandServiceServer) mustEmbedUnimplementedCommandServiceServer() {}
 
@@ -148,6 +232,114 @@ func _CommandService_Delete_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CommandService_CreateMenuCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuCategoryCreate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).CreateMenuCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/CreateMenuCategory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).CreateMenuCategory(ctx, req.(*CmdMenuCategoryCreate))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandService_UpdateMenuCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuCategoryUpdate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).UpdateMenuCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/UpdateMenuCategory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).UpdateMenuCategory(ctx, req.(*CmdMenuCategoryUpdate))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandService_DeleteMenuCategory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuCategoryDelete)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).DeleteMenuCategory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/DeleteMenuCategory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).DeleteMenuCategory(ctx, req.(*CmdMenuCategoryDelete))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandService_CreateMenuItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuItemCreate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).CreateMenuItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/CreateMenuItem",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).CreateMenuItem(ctx, req.(*CmdMenuItemCreate))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandService_UpdateMenuItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuItemUpdate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).UpdateMenuItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/UpdateMenuItem",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).UpdateMenuItem(ctx, req.(*CmdMenuItemUpdate))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CommandService_DeleteMenuItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CmdMenuItemDelete)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CommandServiceServer).DeleteMenuItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/restaurant.CommandService/DeleteMenuItem",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CommandServiceServer).DeleteMenuItem(ctx, req.(*CmdMenuItemDelete))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CommandService_ServiceDesc is the grpc.ServiceDesc for CommandService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -166,6 +358,30 @@ var CommandService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _CommandService_Delete_Handler,
+		},
+		{
+			MethodName: "CreateMenuCategory",
+			Handler:    _CommandService_CreateMenuCategory_Handler,
+		},
+		{
+			MethodName: "UpdateMenuCategory",
+			Handler:    _CommandService_UpdateMenuCategory_Handler,
+		},
+		{
+			MethodName: "DeleteMenuCategory",
+			Handler:    _CommandService_DeleteMenuCategory_Handler,
+		},
+		{
+			MethodName: "CreateMenuItem",
+			Handler:    _CommandService_CreateMenuItem_Handler,
+		},
+		{
+			MethodName: "UpdateMenuItem",
+			Handler:    _CommandService_UpdateMenuItem_Handler,
+		},
+		{
+			MethodName: "DeleteMenuItem",
+			Handler:    _CommandService_DeleteMenuItem_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

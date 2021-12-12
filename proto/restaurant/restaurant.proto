@@ -4,20 +4,20 @@ package restaurant;
 option go_package = "github.com/sveatlo/night_snack/restaurant;restaurant";
 
 // import "errors/errors.proto";
-import "google/protobuf/timestamp.proto";
+// import "google/protobuf/timestamp.proto";
 
 service CommandService {
     rpc Create(CmdRestaurantCreate) returns (RestaurantCreated);
     rpc Update(CmdRestaurantUpdate) returns (RestaurantUpdated);
     rpc Delete(CmdRestaurantDelete) returns (RestaurantDeleted);
 
-    // rpc CreateMenuCategory(CmdMenuCategoryCreate) returns (MenuCategoryCreated);
-    // rpc UpdateMenuCategory(CmdMenuCategoryUpdate) returns (MenuCategoryUpdated);
-    // rpc DeleteMenuCategory(CmdMenuCategoryDelete) returns (MenuCategoryDeleted);
+    rpc CreateMenuCategory(CmdMenuCategoryCreate) returns (MenuCategoryCreated);
+    rpc UpdateMenuCategory(CmdMenuCategoryUpdate) returns (MenuCategoryUpdated);
+    rpc DeleteMenuCategory(CmdMenuCategoryDelete) returns (MenuCategoryDeleted);
 
-    // rpc CreateMenuItem(CmdMenuItemCreate) returns (MenuItemCreated);
-    // rpc UpdateMenuItem(CmdMenuItemUpdate) returns (MenuItemUpdated);
-    // rpc DeleteMenuItem(CmdMenuItemDelete) returns (MenuItemDeleted);
+    rpc CreateMenuItem(CmdMenuItemCreate) returns (MenuItemCreated);
+    rpc UpdateMenuItem(CmdMenuItemUpdate) returns (MenuItemUpdated);
+    rpc DeleteMenuItem(CmdMenuItemDelete) returns (MenuItemDeleted);
 }
 
 service QueryService {
@@ -41,6 +41,31 @@ message CmdMenuCategoryCreate {
     string restaurant_id = 1;
     string name = 2;
 }
+message CmdMenuCategoryUpdate {
+    string id = 1;
+    string name = 3;
+}
+message CmdMenuCategoryDelete {
+    string id = 1;
+}
+
+message CmdMenuItemCreate {
+    string restaurant_id = 1;
+    string category_id = 2;
+    string name = 3;
+    string description = 4;
+}
+message CmdMenuItemUpdate {
+    string id = 1;
+    string restaurant_id = 2;
+    string category_id = 3;
+    string name = 4;
+    string description = 5;
+}
+message CmdMenuItemDelete {
+    string id = 1;
+    string restaurant_id = 2;
+}
 
 // Queries
 message GetRestaurants {}
@@ -52,29 +77,72 @@ message GetRestaurant {
 // Events
 message RestaurantCreated {
     string id = 1;
-    google.protobuf.Timestamp created_at = 2;
     string name = 3;
 }
 message RestaurantUpdated {
     string id = 1;
-    google.protobuf.Timestamp updated_at = 2;
     string name = 3;
 }
 message RestaurantDeleted {
     string id = 1;
-    google.protobuf.Timestamp deleted_at = 2;
 }
 
-// replies
-message Restaurant {
+message MenuCategoryCreated {
     string id = 1;
-    google.protobuf.Timestamp created_at = 2;
-    google.protobuf.Timestamp updated_at = 3;
-
-    string name = 4;
+    string restaurant_id = 2;
+    string name = 3;
+}
+message MenuCategoryUpdated {
+    string id = 1;
+    string restaurant_id = 2;
+    string name = 3;
+}
+message MenuCategoryDeleted {
+    string id = 1;
+    string restaurant_id = 2;
 }
 
+message MenuItemCreated {
+    string id = 1;
+    string restaurant_id = 2;
+    string category_id = 3;
+    string name = 4;
+    string description = 5;
+}
+message MenuItemUpdated {
+    string id = 1;
+    string restaurant_id = 2;
+    string category_id = 3;
+    string name = 4;
+    string description = 5;
+}
+message MenuItemDeleted {
+    string id = 1;
+    string restaurant_id = 2;
+    string category_id = 3;
+}
+
+// entities for replies
 message Restaurants {
     repeated Restaurant restaurants = 1;
 }
 
+message Restaurant {
+    string id = 1;
+    string name = 2;
+
+    repeated MenuCategory categories = 3;
+}
+
+message MenuCategory {
+    string id = 1;
+    string name = 2;
+
+    repeated MenuItem items = 3;
+}
+
+message MenuItem {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+}

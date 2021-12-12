@@ -81,3 +81,75 @@ func (s *CommandService) Delete(ctx context.Context, cmd *restaurant_pb.CmdResta
 
 	return
 }
+
+func (s *CommandService) CreateMenuCategory(ctx context.Context, cmd *restaurant_pb.CmdMenuCategoryCreate) (res *restaurant_pb.MenuCategoryCreated, err error) {
+	event, err := s.repo.CreateMenuCategory(ctx, cmd.GetRestaurantId(), cmd.GetName())
+	if err != nil {
+		err = fmt.Errorf("creation failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuCategoryCreated)
+
+	return
+}
+
+func (s *CommandService) UpdateMenuCategory(ctx context.Context, cmd *restaurant_pb.CmdMenuCategoryUpdate) (res *restaurant_pb.MenuCategoryUpdated, err error) {
+	event, err := s.repo.UpdateMenuCategory(ctx, cmd.GetId(), cmd.GetName())
+	if err != nil {
+		err = fmt.Errorf("update failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuCategoryUpdated)
+
+	return
+}
+
+func (s *CommandService) DeleteMenuCategory(ctx context.Context, cmd *restaurant_pb.CmdMenuCategoryDelete) (res *restaurant_pb.MenuCategoryDeleted, err error) {
+	event, err := s.repo.DeleteMenuCategory(ctx, cmd.GetId())
+	if err != nil {
+		err = fmt.Errorf("delete failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuCategoryDeleted)
+
+	return
+}
+
+func (s *CommandService) CreateMenuItem(ctx context.Context, cmd *restaurant_pb.CmdMenuItemCreate) (res *restaurant_pb.MenuItemCreated, err error) {
+	event, err := s.repo.CreateMenuItem(ctx, cmd.GetRestaurantId(), cmd.GetCategoryId(), cmd.GetName(), cmd.GetDescription())
+	if err != nil {
+		err = fmt.Errorf("creation failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuItemCreated)
+
+	return
+}
+
+func (s *CommandService) UpdateMenuItem(ctx context.Context, cmd *restaurant_pb.CmdMenuItemUpdate) (res *restaurant_pb.MenuItemUpdated, err error) {
+	event, err := s.repo.UpdateMenuItem(ctx, cmd.GetRestaurantId(), cmd.GetCategoryId(), cmd.GetId(), cmd.GetName(), cmd.GetDescription())
+	if err != nil {
+		err = fmt.Errorf("creation failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuItemUpdated)
+
+	return
+}
+
+func (s *CommandService) DeleteMenuItem(ctx context.Context, cmd *restaurant_pb.CmdMenuItemDelete) (res *restaurant_pb.MenuItemDeleted, err error) {
+	event, err := s.repo.DeleteMenuItem(ctx, cmd.GetRestaurantId(), cmd.GetId())
+	if err != nil {
+		err = fmt.Errorf("deletion failed: %w", err)
+		return
+	}
+
+	res = event.ToProto().(*restaurant_pb.MenuItemDeleted)
+
+	return
+}

@@ -55,10 +55,28 @@ func (gw *HTTPGateway) GetRoutes() cadre_http.RoutingGroup {
 				},
 				Groups: []cadre_http.RoutingGroup{
 					{
-						Base: "/:restaurant_id",
+						Base: "/:restaurant_id/menu_categories",
 						Routes: map[string]map[string][]gin.HandlerFunc{
-							"/category": {
+							"/": {
 								"POST": {gw.createMenuCategory},
+							},
+							"/:menu_category_id": {
+								"PUT":    {gw.updateMenuCategory},
+								"DELETE": {gw.deleteMenuCategory},
+							},
+						},
+						Groups: []cadre_http.RoutingGroup{
+							{
+								Base: "/:menu_category_id/items",
+								Routes: map[string]map[string][]gin.HandlerFunc{
+									"/": {
+										"POST": {gw.createMenuItem},
+									},
+									"/:menu_item_id": {
+										"PUT":    {gw.updateMenuItem},
+										"DELETE": {gw.deleteMenuItem},
+									},
+								},
 							},
 						},
 					},
@@ -109,7 +127,7 @@ func (gw *HTTPGateway) getRestaurant(c *gin.Context) {
 // @Description Create new restaurant
 // @ID restaurant_create
 // @Router /restaurant/ [post]
-// @Param   createRestaurantCmd body restaurant_pb.CreateRestaurant true "CreateRestaurant command data"
+// @Param   cmd body restaurant_pb.CmdRestaurantCreate true "Command data"
 // @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.RestaurantCreated}
 // @Failure 400,500  {object} responses.ErrorResponse
 func (gw *HTTPGateway) createRestaurant(c *gin.Context) {
@@ -133,8 +151,8 @@ func (gw *HTTPGateway) createRestaurant(c *gin.Context) {
 // @Description Update existing restaurant. This can be called either with or without the ID in URL, however the ID in URL takes precedence
 // @ID restaurant_update
 // @Router /restaurant/{restaurant_id} [put]
-// @Param   updateRestaurantCmd body restaurant_pb.UpdateRestaurant true "UpdateRestaurant command data"
-// @Success 200      {object} responses.SuccessResponse{}
+// @Param   cmd body restaurant_pb.CmdRestaurantUpdate true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.RestaurantUpdated}
 // @Failure 400,500  {object} responses.ErrorResponse
 func (gw *HTTPGateway) updateRestaurant(c *gin.Context) {
 	updateRestaurantCmd := &restaurant_pb.CmdRestaurantUpdate{}
@@ -158,11 +176,11 @@ func (gw *HTTPGateway) updateRestaurant(c *gin.Context) {
 
 // deleteRestaurant
 // @Summary Deletes restaurant
-// @Description Delete new restaurant
+// @Description Delete an existing restaurant
 // @ID restaurant_delete
-// @Router /restaurant/{restaurant_id} [put]
-// @Param   deleteRestaurantCmd body restaurant_pb.DeleteRestaurant true "DeleteRestaurant command data"
-// @Success 200      {object} responses.SuccessResponse{}
+// @Router /restaurant/{restaurant_id} [delete]
+// @Param   cmd body restaurant_pb.CmdRestaurantDelete true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.RestaurantDeleted}
 // @Failure 400,500  {object} responses.ErrorResponse
 func (gw *HTTPGateway) deleteRestaurant(c *gin.Context) {
 	deleteRestaurantCmd := &restaurant_pb.CmdRestaurantDelete{}
@@ -185,21 +203,181 @@ func (gw *HTTPGateway) deleteRestaurant(c *gin.Context) {
 }
 
 // createMenuCategory
-// @Summary Creates menu category in restaurant
-// @Description Create new restaurant
+// @Summary Create menu category
+// @Description Creates menu category in restaurant
 // @ID restaurant_create
-// @Router /restaurant/{restaurant_id}/category [post]
-// @Param   createRestaurantCmd body restaurant_pb.CreateRestaurant true "CreateRestaurant command data"
-// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.RestaurantCreated}
+// @Router /restaurant/{restaurant_id}/menu_categories [post]
+// @Param   cmd body restaurant_pb.CmdMenuCategoryCreate true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryCreated}
 // @Failure 400,500  {object} responses.ErrorResponse
 func (gw *HTTPGateway) createMenuCategory(c *gin.Context) {
-	createRestaurantCmd := &restaurant_pb.CmdRestaurantCreate{}
-	if err := c.Bind(&createRestaurantCmd); err != nil {
+	createMenuCategoryCmd := &restaurant_pb.CmdMenuCategoryCreate{}
+	if err := c.Bind(&createMenuCategoryCmd); err != nil {
 		responses.BadRequest(c, responses.NewError(err))
 		return
 	}
+	restaurantID := c.Param("restaurant_id")
+	if restaurantID != "" {
+		createMenuCategoryCmd.RestaurantId = restaurantID
+	}
 
-	res, err := gw.restaurantCommandSvc.Create(c.Request.Context(), createRestaurantCmd)
+	res, err := gw.restaurantCommandSvc.CreateMenuCategory(c.Request.Context(), createMenuCategoryCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// updateMenuCategory
+// @Summary Update menu category
+// @Description Update menu category in restaurant
+// @ID restaurant_update
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_category_id} [put]
+// @Param   cmd body restaurant_pb.CmdMenuCategoryUpdate true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryUpdated}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) updateMenuCategory(c *gin.Context) {
+	updateMenuCategoryCmd := &restaurant_pb.CmdMenuCategoryUpdate{}
+	if err := c.Bind(&updateMenuCategoryCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	menuCategoryID := c.Param("menu_category_id")
+	if menuCategoryID != "" {
+		updateMenuCategoryCmd.Id = menuCategoryID
+	}
+
+	res, err := gw.restaurantCommandSvc.UpdateMenuCategory(c.Request.Context(), updateMenuCategoryCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// deleteMenuCategory
+// @Summary Delete menu category
+// @Description Delete menu category in restaurant
+// @ID restaurant_delete
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_category_id} [delete]
+// @Param   cmd body restaurant_pb.CmdMenuCategoryDelete true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryDeleted}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) deleteMenuCategory(c *gin.Context) {
+	deleteMenuCategoryCmd := &restaurant_pb.CmdMenuCategoryDelete{}
+	if err := c.Bind(&deleteMenuCategoryCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	menuCategoryID := c.Param("menu_category_id")
+	if menuCategoryID != "" {
+		deleteMenuCategoryCmd.Id = menuCategoryID
+	}
+
+	res, err := gw.restaurantCommandSvc.DeleteMenuCategory(c.Request.Context(), deleteMenuCategoryCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// createMenuItem
+// @Summary Create menu item
+// @Description Creates menu item in restaurant
+// @ID menu_item_create
+// @Router /restaurant/{restaurant_id}/menu_categories [post]
+// @Param   cmd body restaurant_pb.CmdMenuItemCreate true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuItemCreated}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) createMenuItem(c *gin.Context) {
+	createMenuItemCmd := &restaurant_pb.CmdMenuItemCreate{}
+	if err := c.Bind(&createMenuItemCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	restaurantID := c.Param("restaurant_id")
+	if restaurantID != "" {
+		createMenuItemCmd.RestaurantId = restaurantID
+	}
+	categoryID := c.Param("menu_category_id")
+	if categoryID != "" {
+		createMenuItemCmd.CategoryId = categoryID
+	}
+
+	res, err := gw.restaurantCommandSvc.CreateMenuItem(c.Request.Context(), createMenuItemCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// updateMenuItem
+// @Summary Update menu item
+// @Description Update menu item in restaurant
+// @ID menu_item_update
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_item_id} [put]
+// @Param   cmd body restaurant_pb.CmdMenuItemUpdate true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuItemUpdated}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) updateMenuItem(c *gin.Context) {
+	updateMenuItemCmd := &restaurant_pb.CmdMenuItemUpdate{}
+	if err := c.Bind(&updateMenuItemCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	restaurantID := c.Param("restaurant_id")
+	if restaurantID != "" {
+		updateMenuItemCmd.RestaurantId = restaurantID
+	}
+	categoryID := c.Param("menu_category_id")
+	if categoryID != "" {
+		updateMenuItemCmd.CategoryId = categoryID
+	}
+	itemID := c.Param("menu_item_id")
+	if itemID != "" {
+		updateMenuItemCmd.Id = itemID
+	}
+
+	res, err := gw.restaurantCommandSvc.UpdateMenuItem(c.Request.Context(), updateMenuItemCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// deleteMenuItem
+// @Summary Delete menu item
+// @Description Delete menu item in restaurant
+// @ID menu_item_delete
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_item_id} [put]
+// @Param   cmd body restaurant_pb.CmdMenuItemDelete true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuItemDeleted}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) deleteMenuItem(c *gin.Context) {
+	deleteMenuItemCmd := &restaurant_pb.CmdMenuItemDelete{}
+	if err := c.Bind(&deleteMenuItemCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	restaurantID := c.Param("restaurant_id")
+	if restaurantID != "" {
+		deleteMenuItemCmd.RestaurantId = restaurantID
+	}
+	itemID := c.Param("menu_item_id")
+	if itemID != "" {
+		deleteMenuItemCmd.Id = itemID
+	}
+
+	res, err := gw.restaurantCommandSvc.DeleteMenuItem(c.Request.Context(), deleteMenuItemCmd)
 	if err != nil {
 		responses.InternalError(c, responses.NewError(err))
 		return
