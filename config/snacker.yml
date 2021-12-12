@@ -1,0 +1,6 @@
+loglevel: trace
+# sentry_dsn: https://2d0de362bc5043ca97e78a3b9e8e733b@o303183.ingest.sentry.io/5961107
+
+registry:
+    type: file
+    file_path: ./config/registry.yml

@@ -1,0 +1,20 @@
+syntax = "proto3";
+package errors;
+
+option go_package = "github.com/sveatlo/night_snack/proto/errors;errors";
+
+// imports
+import "google/protobuf/struct.proto";
+
+enum Type {
+    AUTH = 0;
+    VALIDATION = 1;
+    PROCESSING = 2;
+}
+
+message Error {
+    Type type = 1;
+    string message = 2;
+    google.protobuf.Struct details = 3;
+}
+

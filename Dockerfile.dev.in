@@ -1,0 +1,30 @@
+# Build dev image
+FROM {{ BUILDIMAGE }} as builder
+
+# install system dependencies
+RUN apt update -y
+RUN apt install -y unzip
+# prepare protoc
+WORKDIR /tmp
+ENV PROTOC_ZIP=protoc-3.17.2-linux-x86_64.zip
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.2/$PROTOC_ZIP
+RUN unzip -o $PROTOC_ZIP -d /usr/local 'bin/protoc'
+RUN unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+
+# prepare project
+WORKDIR /app
+VOLUME ["/app"]
+# prepare go dependencies
+COPY tools.go .
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+RUN GO111MODULE=on cat tools.go | grep _ | awk -F'"' '{print $2}' | xargs -tI % go install %
+
+ENV GOOS {{ OS }}
+ENV GOARCH {{ ARCH }}
+ENV ENV dev
+
+ENV ARGS --config ./config/{{CMD_NAME}}.yml
+CMD ["make", "run-{{ CMD_NAME }}"]
+

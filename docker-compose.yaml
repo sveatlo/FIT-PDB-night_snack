@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+    snacker:
+        build:
+            context: .
+            dockerfile: Dockerfile.snacker
+        volumes:
+            - ".:/app"
+        ports:
+            - "1757:1757" # http
+            - "1758:1758" # grpc
+
+    cockroach:
+        image: cockroachdb/cockroach:v19.2.2
+        command: start-single-node --insecure
+        ports:
+            - "26257:26257"
+            - "8080:8080"
+    mongo:
+        image: mongo
+        command: mongod -v --logpath /dev/null
+        logging:
+            driver: "none"
+        ports:
+            - "27017:27017"
+
+    nats:
+        image: nats
+        ports:
+            - "4222:4222"
+

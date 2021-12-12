@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package restaurant;
+option go_package = "github.com/sveatlo/night_snack/restaurant;restaurant";
+
+// import "errors/errors.proto";
+import "google/protobuf/timestamp.proto";
+
+service CommandService {
+    rpc Create(CmdRestaurantCreate) returns (RestaurantCreated);
+    rpc Update(CmdRestaurantUpdate) returns (RestaurantUpdated);
+    rpc Delete(CmdRestaurantDelete) returns (RestaurantDeleted);
+
+    // rpc CreateMenuCategory(CmdMenuCategoryCreate) returns (MenuCategoryCreated);
+    // rpc UpdateMenuCategory(CmdMenuCategoryUpdate) returns (MenuCategoryUpdated);
+    // rpc DeleteMenuCategory(CmdMenuCategoryDelete) returns (MenuCategoryDeleted);
+
+    // rpc CreateMenuItem(CmdMenuItemCreate) returns (MenuItemCreated);
+    // rpc UpdateMenuItem(CmdMenuItemUpdate) returns (MenuItemUpdated);
+    // rpc DeleteMenuItem(CmdMenuItemDelete) returns (MenuItemDeleted);
+}
+
+service QueryService {
+    rpc GetAll(GetRestaurants) returns (Restaurants);
+    rpc Get(GetRestaurant) returns (Restaurant);
+}
+
+// Commands
+message CmdRestaurantCreate {
+    string name = 1;
+}
+message CmdRestaurantUpdate {
+    string id = 1;
+    string name = 2;
+}
+message CmdRestaurantDelete {
+    string id = 1;
+}
+
+message CmdMenuCategoryCreate {
+    string restaurant_id = 1;
+    string name = 2;
+}
+
+// Queries
+message GetRestaurants {}
+message GetRestaurant {
+    string id = 1;
+    string name = 2;
+}
+
+// Events
+message RestaurantCreated {
+    string id = 1;
+    google.protobuf.Timestamp created_at = 2;
+    string name = 3;
+}
+message RestaurantUpdated {
+    string id = 1;
+    google.protobuf.Timestamp updated_at = 2;
+    string name = 3;
+}
+message RestaurantDeleted {
+    string id = 1;
+    google.protobuf.Timestamp deleted_at = 2;
+}
+
+// replies
+message Restaurant {
+    string id = 1;
+    google.protobuf.Timestamp created_at = 2;
+    google.protobuf.Timestamp updated_at = 3;
+
+    string name = 4;
+}
+
+message Restaurants {
+    repeated Restaurant restaurants = 1;
+}
+

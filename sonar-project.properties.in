@@ -1,0 +1,20 @@
+sonar.projectKey={{ PROJECT_NAME }}
+sonar.projectName={{ PROJECT_NAME }}
+sonar.projectVersion={{ VERSION }}
+
+sonar.language=go
+sonar.sourceEncoding=UTF-8
+sonar.host.url=http://sonarqube.react-dev.moderntv.eu
+
+sonar.sources=.
+sonar.inclusions=**/*.go
+sonar.exclusions=**/*_test.go,**/vendor/**,**/testdata/*
+
+sonar.tests=.
+sonar.test.inclusions=**/*_test.go
+sonar.test.exclusions=**/vendor/**
+
+sonar.go.tests.reportPaths=report.json
+sonar.go.coverage.reportPaths=cp.out
+sonar.go.golangci-lint.reportPaths=golangci-lint.out
+
