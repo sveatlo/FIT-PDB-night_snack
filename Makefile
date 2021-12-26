@@ -57,6 +57,14 @@ proto:
 		--go_out=paths=source_relative:. \
 		--go-grpc_out=paths=source_relative:. \
 		proto/restaurant/*.proto
+	protoc --proto_path=. -I ./proto -I $$GOPATH/src \
+		--go_out=paths=source_relative:. \
+		--go-grpc_out=paths=source_relative:. \
+		proto/stock/*.proto
+	protoc --proto_path=. -I ./proto -I $$GOPATH/src \
+		--go_out=paths=source_relative:. \
+		--go-grpc_out=paths=source_relative:. \
+		proto/orders/*.proto
 
 define BUILD_template =
 .PHONY: build-$(1)

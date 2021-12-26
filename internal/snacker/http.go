@@ -7,8 +7,12 @@ import (
 	"github.com/rs/zerolog"
 	_ "google.golang.org/protobuf/types/known/structpb"
 
+	"github.com/sveatlo/night_snack/internal/orders"
 	"github.com/sveatlo/night_snack/internal/restaurant"
+	"github.com/sveatlo/night_snack/internal/stock"
+	orders_pb "github.com/sveatlo/night_snack/proto/orders"
 	restaurant_pb "github.com/sveatlo/night_snack/proto/restaurant"
+	stock_pb "github.com/sveatlo/night_snack/proto/stock"
 )
 
 type HTTPGateway struct {
@@ -17,15 +21,19 @@ type HTTPGateway struct {
 	snackerSvc           *SnackerSvc
 	restaurantCommandSvc *restaurant.CommandService
 	restaurantQuerySvc   *restaurant.QueryService
+	stockSvc             *stock.Service
+	ordersSvc            *orders.Service
 }
 
-func NewHTTP(snackerSvc *SnackerSvc, restaurantCommandSvc *restaurant.CommandService, restaurantQuerySvc *restaurant.QueryService, log zerolog.Logger) (g *HTTPGateway, err error) {
+func NewHTTP(snackerSvc *SnackerSvc, restaurantCommandSvc *restaurant.CommandService, restaurantQuerySvc *restaurant.QueryService, stockSvc *stock.Service, ordersSvc *orders.Service, log zerolog.Logger) (g *HTTPGateway, err error) {
 	g = &HTTPGateway{
 		log: log.With().Str("component", "http").Logger(),
 
 		snackerSvc:           snackerSvc,
 		restaurantCommandSvc: restaurantCommandSvc,
 		restaurantQuerySvc:   restaurantQuerySvc,
+		stockSvc:             stockSvc,
+		ordersSvc:            ordersSvc,
 	}
 
 	return
@@ -77,8 +85,33 @@ func (gw *HTTPGateway) GetRoutes() cadre_http.RoutingGroup {
 										"DELETE": {gw.deleteMenuItem},
 									},
 								},
+								Groups: []cadre_http.RoutingGroup{
+									{
+										Base: "/:menu_item_id",
+										Routes: map[string]map[string][]gin.HandlerFunc{
+											"/stock/increase": {
+												"POST": {gw.increaseStock},
+											},
+											"/stock/decrease": {
+												"POST": {gw.decreaseStock},
+											},
+										},
+									},
+								},
 							},
 						},
+					},
+				},
+			},
+			{
+				Base:       "/orders",
+				Middleware: []gin.HandlerFunc{},
+				Routes: map[string]map[string][]gin.HandlerFunc{
+					"/": {
+						"POST": {gw.createOrder},
+					},
+					":order_id": {
+						"PUT": {gw.updateOrderStatus},
 					},
 				},
 			},
@@ -106,7 +139,7 @@ func (gw *HTTPGateway) getRestaurants(c *gin.Context) {
 // getRestaurant
 // @Summary Gets restaurants
 // @Description Get all restaurants
-// @ID restaurants_get
+// @ID restaurant_get
 // @Router /restaurant/{restaurant_id} [get]
 // @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.Restaurant}
 // @Failure 400,500  {object} responses.ErrorResponse
@@ -205,7 +238,7 @@ func (gw *HTTPGateway) deleteRestaurant(c *gin.Context) {
 // createMenuCategory
 // @Summary Create menu category
 // @Description Creates menu category in restaurant
-// @ID restaurant_create
+// @ID menu_category_create
 // @Router /restaurant/{restaurant_id}/menu_categories [post]
 // @Param   cmd body restaurant_pb.CmdMenuCategoryCreate true "Command data"
 // @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryCreated}
@@ -234,6 +267,7 @@ func (gw *HTTPGateway) createMenuCategory(c *gin.Context) {
 // @Summary Update menu category
 // @Description Update menu category in restaurant
 // @ID restaurant_update
+// @ID menu_category_update
 // @Router /restaurant/{restaurant_id}/menu_categories/{menu_category_id} [put]
 // @Param   cmd body restaurant_pb.CmdMenuCategoryUpdate true "Command data"
 // @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryUpdated}
@@ -261,7 +295,7 @@ func (gw *HTTPGateway) updateMenuCategory(c *gin.Context) {
 // deleteMenuCategory
 // @Summary Delete menu category
 // @Description Delete menu category in restaurant
-// @ID restaurant_delete
+// @ID menu_category_delete
 // @Router /restaurant/{restaurant_id}/menu_categories/{menu_category_id} [delete]
 // @Param   cmd body restaurant_pb.CmdMenuCategoryDelete true "Command data"
 // @Success 200      {object} responses.SuccessResponse{data=restaurant_pb.MenuCategoryDeleted}
@@ -378,6 +412,114 @@ func (gw *HTTPGateway) deleteMenuItem(c *gin.Context) {
 	}
 
 	res, err := gw.restaurantCommandSvc.DeleteMenuItem(c.Request.Context(), deleteMenuItemCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// increaseStock
+// @Summary Increase stock
+// @Description Increase item stock
+// @ID stock_increase
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_item_id}/stock/increase [post]
+// @Param   cmd body stock_pb.CmdIncreaseStock true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=stock_pb.StockIncreased}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) increaseStock(c *gin.Context) {
+	increaseStockCmd := &stock_pb.CmdIncreaseStock{}
+	if err := c.Bind(&increaseStockCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	itemID := c.Param("menu_item_id")
+	if itemID != "" {
+		increaseStockCmd.ItemId = itemID
+	}
+
+	res, err := gw.stockSvc.IncreaseStock(c.Request.Context(), increaseStockCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// decreaseStock
+// @Summary Decrease stock
+// @Description Decrease item stock
+// @ID stock_decrease
+// @Router /restaurant/{restaurant_id}/menu_categories/{menu_item_id}/stock/decrease [post]
+// @Param   cmd body stock_pb.CmdDecreaseStock true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=stock_pb.StockDecreased}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) decreaseStock(c *gin.Context) {
+	decreaseStockCmd := &stock_pb.CmdDecreaseStock{}
+	if err := c.Bind(&decreaseStockCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	itemID := c.Param("menu_item_id")
+	if itemID != "" {
+		decreaseStockCmd.ItemId = itemID
+	}
+
+	res, err := gw.stockSvc.DecreaseStock(c.Request.Context(), decreaseStockCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// createOrder
+// @Summary Create order
+// @Description Creates new order
+// @ID order_create
+// @Router /orders/ [post]
+// @Param   cmd body orders_pb.CmdCreateOrder true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=orders_pb.OrderCreated}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) createOrder(c *gin.Context) {
+	createOrderCmd := &orders_pb.CmdCreateOrder{}
+	if err := c.Bind(&createOrderCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+
+	res, err := gw.ordersSvc.Create(c.Request.Context(), createOrderCmd)
+	if err != nil {
+		responses.InternalError(c, responses.NewError(err))
+		return
+	}
+
+	responses.Ok(c, res)
+}
+
+// updateOrderStatus
+// @Summary Create order
+// @Description Creates new order
+// @ID order_create
+// @Router /orders/{order_id} [put]
+// @Param   cmd body orders_pb.CmdUpdateStatus true "Command data"
+// @Success 200      {object} responses.SuccessResponse{data=orders_pb.StatusUpdated}
+// @Failure 400,500  {object} responses.ErrorResponse
+func (gw *HTTPGateway) updateOrderStatus(c *gin.Context) {
+	updateStatusCmd := &orders_pb.CmdUpdateStatus{}
+	if err := c.Bind(&updateStatusCmd); err != nil {
+		responses.BadRequest(c, responses.NewError(err))
+		return
+	}
+	orderID := c.Param("order_id")
+	if orderID != "" {
+		updateStatusCmd.Id = orderID
+	}
+
+	res, err := gw.ordersSvc.UpdateStatus(c.Request.Context(), updateStatusCmd)
 	if err != nil {
 		responses.InternalError(c, responses.NewError(err))
 		return

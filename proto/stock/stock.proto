@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package stock;
+option go_package = "github.com/sveatlo/night_snack/stock;stock";
+
+// import "errors/errors.proto";
+// import "google/protobuf/timestamp.proto";
+
+service StockService {
+    rpc IncreaseStock(CmdIncreaseStock) returns (StockIncreased);
+    rpc DecreaseStock(CmdDecreaseStock) returns (StockDecreased);
+}
+
+// Commands
+message CmdIncreaseStock {
+    string item_id = 1;
+    int32 n = 3;
+}
+message CmdDecreaseStock {
+    string item_id = 1;
+    int32 n = 3;
+}
+
+// Events
+message StockIncreased {
+    string item_id = 1;
+    int32 n = 4;
+}
+message StockDecreased {
+    string item_id = 1;
+    int32 n = 4;
+}

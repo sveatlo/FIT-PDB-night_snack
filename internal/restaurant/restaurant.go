@@ -1,10 +1,9 @@
 package restaurant
 
 import (
-	"fmt"
-	"log"
 	"time"
 
+	"github.com/sveatlo/night_snack/internal/events"
 	restaurant_pb "github.com/sveatlo/night_snack/proto/restaurant"
 )
 
@@ -13,10 +12,17 @@ type Restaurant struct {
 	Name      string    `gorm:"not null;uniqueIndex" bson:"name"`
 	DeletedAt time.Time `gorm:"-" bson:"deleted_at"`
 
-	MenuCategories []MenuCategory `bson:"menu_categories"`
+	MenuCategories []MenuCategory `bson:"menu_categories,omitempty"`
 }
 
-func NewFromEvents(events []Event) (r *Restaurant, err error) {
+func NewRestaurantFromProto(r *restaurant_pb.Restaurant) *Restaurant {
+	return &Restaurant{
+		ID:   r.Id,
+		Name: r.Name,
+	}
+}
+
+func NewRestaurantFromEvents(events []events.Event) (r *Restaurant, err error) {
 	r = &Restaurant{
 		MenuCategories: []MenuCategory{},
 	}
@@ -28,11 +34,7 @@ func NewFromEvents(events []Event) (r *Restaurant, err error) {
 	return
 }
 
-func (r *Restaurant) ApplyEvent(event Event) {
-	if r == nil {
-		*r = Restaurant{}
-	}
-
+func (r *Restaurant) ApplyEvent(event events.Event) {
 	switch e := event.(type) {
 	case *EventCreated:
 		r.ID = e.ID
@@ -94,16 +96,12 @@ func (r *Restaurant) ApplyEvent(event Event) {
 			}
 		}
 	case *EventMenuItemDeleted:
-		log.Printf("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB %+v", r.MenuCategories, e.CategoryID)
 	outerD:
 		for i, category := range r.MenuCategories {
 			if category.ID == e.CategoryID {
 				for j, item := range category.Items {
-					fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAA 0", item.ID)
 					if item.ID == e.ID {
-						fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAA 1", len(r.MenuCategories[i].Items))
 						r.MenuCategories[i].Items = append(r.MenuCategories[i].Items[:j], r.MenuCategories[i].Items[j+1:]...)
-						fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAA 2", len(r.MenuCategories[i].Items))
 						break outerD
 					}
 				}

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package orders;
+option go_package = "github.com/sveatlo/night_snack/orders;orders";
+
+import "restaurant/restaurant.proto";
+// import "errors/errors.proto";
+// import "google/protobuf/timestamp.proto";
+
+service OrdersService {
+    rpc Create(CmdCreateOrder) returns (OrderCreated);
+    rpc UpdateStatus(CmdUpdateStatus) returns (StatusUpdated);
+}
+
+// Commands
+message CmdCreateOrder {
+    string restaurant_id = 1;
+    repeated string item_ids = 2;
+}
+message CmdUpdateStatus {
+    string id = 1;
+    OrderStatus status = 2;
+}
+
+// Events
+message OrderCreated {
+    string id = 1;
+    restaurant.Restaurant restaurant = 2;
+    repeated restaurant.MenuItem items = 3;
+    OrderStatus status = 4;
+}
+message StatusUpdated {
+    string id = 1;
+    OrderStatus status = 4;
+}
+
+// entities
+enum OrderStatus {
+    RECEIVED = 0;
+    PROCESSING = 1;
+    DELIVERY = 2;
+    DELIVERED = 3;
+}

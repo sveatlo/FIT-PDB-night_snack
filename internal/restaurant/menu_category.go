@@ -14,8 +14,15 @@ type MenuCategory struct {
 }
 
 func (mc *MenuCategory) ToProto() *restaurant_pb.MenuCategory {
+	items := make([]*restaurant_pb.MenuItem, len(mc.Items))
+	for i, mi := range mc.Items {
+		items[i] = mi.ToProto()
+	}
+
 	return &restaurant_pb.MenuCategory{
 		Id:   mc.ID,
 		Name: mc.Name,
+
+		Items: items,
 	}
 }

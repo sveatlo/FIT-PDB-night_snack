@@ -10,10 +10,13 @@ import (
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/gorm"
+
+	"github.com/sveatlo/night_snack/internal/events"
+	"github.com/sveatlo/night_snack/internal/repository"
 )
 
 type WriteRepository struct {
-	*BaseRepository
+	*repository.Base
 
 	log zerolog.Logger
 	nc  *nats.EncodedConn
@@ -22,13 +25,13 @@ type WriteRepository struct {
 
 func NewWriteRepository(nc *nats.EncodedConn, db *gorm.DB, mongo *mongo.Database, log zerolog.Logger) (repo *WriteRepository, err error) {
 	log = log.With().Str("component", "restaurant/write_repository").Logger()
-	base, err := NewBaseRepository(mongo, log)
+	base, err := repository.NewBase(nc, mongo, log)
 	if err != nil {
 		return
 	}
 
 	repo = &WriteRepository{
-		BaseRepository: base,
+		Base: base,
 
 		log: log,
 		nc:  nc,
@@ -41,21 +44,15 @@ func NewWriteRepository(nc *nats.EncodedConn, db *gorm.DB, mongo *mongo.Database
 		return
 	}
 
-	// _, err = nc.Subscribe(repo.getTopic(&EventCreated{}), repo.handleCreateCommand)
-	// if err != nil {
-	//     err = fmt.Errorf("cannot create subscription for EventCreated: %w", err)
-	// }
-
 	return
 }
 
-func (repo *WriteRepository) getTopic(event Event) string {
-	return fmt.Sprintf("%s.%s", event.EventCategory(), event.EventType())
+func (repo *WriteRepository) SaveEvents(aggregateID string, aggregateEvents []events.Event, originalVersion int) (err error) {
+	return repo.Base.SaveEvents("restaurant", aggregateID, aggregateEvents, originalVersion)
 }
 
-func (repo *WriteRepository) publish(event Event) error {
-	repo.log.Debug().Interface("proto", event.ToProto()).Str("proto-type", fmt.Sprintf("%T", event.ToProto())).Msg("publishing proto event")
-	return repo.nc.Publish(repo.getTopic(event), event.ToProto())
+func (repo *WriteRepository) LoadAggregate(id string) (aggregate events.AggregateDB, err error) {
+	return repo.Base.LoadAggregate("restaurant", id)
 }
 
 func (repo *WriteRepository) Create(ctx context.Context, name string) (event *EventCreated, err error) {
@@ -65,7 +62,7 @@ func (repo *WriteRepository) Create(ctx context.Context, name string) (event *Ev
 		return
 	}
 
-	aggregate, err := repo.loadAggregate(id.String())
+	aggregate, err := repo.LoadAggregate(id.String())
 	if err != nil {
 		return
 	}
@@ -86,12 +83,12 @@ func (repo *WriteRepository) Create(ctx context.Context, name string) (event *Ev
 			Name: name,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -103,7 +100,7 @@ func (repo *WriteRepository) Create(ctx context.Context, name string) (event *Ev
 }
 
 func (repo *WriteRepository) Update(ctx context.Context, id, name string) (event *EventUpdated, err error) {
-	aggregate, err := repo.loadAggregate(id)
+	aggregate, err := repo.LoadAggregate(id)
 	if err != nil {
 		return
 	}
@@ -129,13 +126,13 @@ func (repo *WriteRepository) Update(ctx context.Context, id, name string) (event
 			Name: name,
 		}
 
-		err = repo.saveEvents(id, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(id, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			err = fmt.Errorf("cannot create event record: %w", err)
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -147,7 +144,7 @@ func (repo *WriteRepository) Update(ctx context.Context, id, name string) (event
 }
 
 func (repo *WriteRepository) Delete(ctx context.Context, id string) (event *EventDeleted, err error) {
-	aggregate, err := repo.loadAggregate(id)
+	aggregate, err := repo.LoadAggregate(id)
 	if err != nil {
 		return
 	}
@@ -172,13 +169,13 @@ func (repo *WriteRepository) Delete(ctx context.Context, id string) (event *Even
 			DeletedAt: time.Now(),
 		}
 
-		err = repo.saveEvents(id, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(id, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			err = fmt.Errorf("cannot create event record: %w", err)
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -190,7 +187,7 @@ func (repo *WriteRepository) Delete(ctx context.Context, id string) (event *Even
 }
 
 func (repo *WriteRepository) CreateMenuCategory(ctx context.Context, restaurantID, name string) (event *EventMenuCategoryCreated, err error) {
-	aggregate, err := repo.loadAggregate(restaurantID)
+	aggregate, err := repo.LoadAggregate(restaurantID)
 	if err != nil {
 		return
 	}
@@ -218,12 +215,12 @@ func (repo *WriteRepository) CreateMenuCategory(ctx context.Context, restaurantI
 			Name:         name,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -243,7 +240,7 @@ func (repo *WriteRepository) UpdateMenuCategory(ctx context.Context, id, name st
 	}
 	menuCategory.Name = name
 
-	aggregate, err := repo.loadAggregate(menuCategory.RestaurantID)
+	aggregate, err := repo.LoadAggregate(menuCategory.RestaurantID)
 	if err != nil {
 		return
 	}
@@ -262,12 +259,12 @@ func (repo *WriteRepository) UpdateMenuCategory(ctx context.Context, id, name st
 			Name:         name,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -286,7 +283,7 @@ func (repo *WriteRepository) DeleteMenuCategory(ctx context.Context, id string) 
 		return
 	}
 
-	aggregate, err := repo.loadAggregate(menuCategory.RestaurantID)
+	aggregate, err := repo.LoadAggregate(menuCategory.RestaurantID)
 	if err != nil {
 		return
 	}
@@ -304,12 +301,12 @@ func (repo *WriteRepository) DeleteMenuCategory(ctx context.Context, id string) 
 			RestaurantID: menuCategory.RestaurantID,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -321,7 +318,7 @@ func (repo *WriteRepository) DeleteMenuCategory(ctx context.Context, id string) 
 }
 
 func (repo *WriteRepository) CreateMenuItem(ctx context.Context, restaurantID, categoryID, name, description string) (event *EventMenuItemCreated, err error) {
-	aggregate, err := repo.loadAggregate(restaurantID)
+	aggregate, err := repo.LoadAggregate(restaurantID)
 	if err != nil {
 		return
 	}
@@ -352,12 +349,12 @@ func (repo *WriteRepository) CreateMenuItem(ctx context.Context, restaurantID, c
 			Description:  description,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -378,7 +375,7 @@ func (repo *WriteRepository) UpdateMenuItem(ctx context.Context, restaurantID, c
 	menuItem.Name = name
 	menuItem.Description = description
 
-	aggregate, err := repo.loadAggregate(restaurantID)
+	aggregate, err := repo.LoadAggregate(restaurantID)
 	if err != nil {
 		return
 	}
@@ -399,12 +396,12 @@ func (repo *WriteRepository) UpdateMenuItem(ctx context.Context, restaurantID, c
 			Description:  description,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}
@@ -423,7 +420,7 @@ func (repo *WriteRepository) DeleteMenuItem(ctx context.Context, restaurantID, i
 		return
 	}
 
-	aggregate, err := repo.loadAggregate(restaurantID)
+	aggregate, err := repo.LoadAggregate(restaurantID)
 	if err != nil {
 		return
 	}
@@ -442,12 +439,12 @@ func (repo *WriteRepository) DeleteMenuItem(ctx context.Context, restaurantID, i
 			CategoryID:   menuItem.MenuCategoryID,
 		}
 
-		err = repo.saveEvents(aggregate.ID, []Event{event}, aggregate.Version)
+		err = repo.SaveEvents(aggregate.ID, []events.Event{event}, aggregate.Version)
 		if err != nil {
 			return
 		}
 
-		err = repo.publish(event)
+		err = repo.Publish(event)
 		if err != nil {
 			return
 		}

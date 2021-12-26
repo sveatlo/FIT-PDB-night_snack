@@ -12,6 +12,14 @@ type MenuItem struct {
 	Description string `gorm:"null" bson:"description"`
 }
 
+func NewMenuItemFromProto(mi *restaurant_pb.MenuItem) *MenuItem {
+	return &MenuItem{
+		ID:          mi.Id,
+		Name:        mi.Name,
+		Description: mi.Description,
+	}
+}
+
 func (mi *MenuItem) ToProto() *restaurant_pb.MenuItem {
 	return &restaurant_pb.MenuItem{
 		Id:          mi.ID,

@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package restaurant;
-option go_package = "github.com/sveatlo/night_snack/restaurant;restaurant";
+option go_package = "github.com/sveatlo/night_snack/proto/restaurant;restaurant";
 
 // import "errors/errors.proto";
 // import "google/protobuf/timestamp.proto";
@@ -67,13 +67,6 @@ message CmdMenuItemDelete {
     string restaurant_id = 2;
 }
 
-// Queries
-message GetRestaurants {}
-message GetRestaurant {
-    string id = 1;
-    string name = 2;
-}
-
 // Events
 message RestaurantCreated {
     string id = 1;
@@ -120,6 +113,12 @@ message MenuItemDeleted {
     string id = 1;
     string restaurant_id = 2;
     string category_id = 3;
+}
+
+// Queries
+message GetRestaurants {}
+message GetRestaurant {
+    string id = 1;
 }
 
 // entities for replies

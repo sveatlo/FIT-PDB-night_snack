@@ -7,30 +7,23 @@ import (
 	bson_primitive "go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/sveatlo/night_snack/internal/events"
 	restaurant_pb "github.com/sveatlo/night_snack/proto/restaurant"
 )
 
 var (
-	_ Event = &EventCreated{}
-	_ Event = &EventUpdated{}
-	_ Event = &EventDeleted{}
+	_ events.Event = &EventCreated{}
+	_ events.Event = &EventUpdated{}
+	_ events.Event = &EventDeleted{}
 
-	_ Event = &EventMenuCategoryCreated{}
-	_ Event = &EventMenuCategoryUpdated{}
-	_ Event = &EventMenuCategoryDeleted{}
+	_ events.Event = &EventMenuCategoryCreated{}
+	_ events.Event = &EventMenuCategoryUpdated{}
+	_ events.Event = &EventMenuCategoryDeleted{}
 
-	_ Event = &EventMenuItemCreated{}
-	_ Event = &EventMenuItemUpdated{}
-	_ Event = &EventMenuItemDeleted{}
+	_ events.Event = &EventMenuItemCreated{}
+	_ events.Event = &EventMenuItemUpdated{}
+	_ events.Event = &EventMenuItemDeleted{}
 )
-
-type Event interface {
-	EventCategory() string
-	EventType() string
-	AggregateID() string
-	Data() bson.M
-	ToProto() proto.Message
-}
 
 type EventCreated struct {
 	ID   string `bson:"id,omitempty" json:"id,omitempty"`

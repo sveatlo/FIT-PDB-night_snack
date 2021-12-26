@@ -7,6 +7,8 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/rs/zerolog"
+	"github.com/sveatlo/night_snack/internal/events"
+	"github.com/sveatlo/night_snack/internal/repository"
 	restaurant_pb "github.com/sveatlo/night_snack/proto/restaurant"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -14,6 +16,8 @@ import (
 )
 
 type ReadRepository struct {
+	*repository.Base
+
 	log zerolog.Logger
 	nc  *nats.EncodedConn
 	db  *gorm.DB
@@ -23,9 +27,16 @@ type ReadRepository struct {
 }
 
 func NewReadRepository(nc *nats.EncodedConn, mongoDB *mongo.Database, log zerolog.Logger) (repo *ReadRepository, err error) {
+	log = log.With().Str("component", "restaurant/read_repository").Logger()
+	base, err := repository.NewBase(nc, mongoDB, log)
+	if err != nil {
+		return
+	}
+
 	repo = &ReadRepository{
-		log: log.With().Str("component", "restaurant/read_repository").Logger(),
-		nc:  nc,
+		Base: base,
+		log:  log,
+		nc:   nc,
 
 		restaurantsCollection: mongoDB.Collection("restaurants"),
 		eventsCollection:      mongoDB.Collection("events"),
@@ -42,49 +53,49 @@ func NewReadRepository(nc *nats.EncodedConn, mongoDB *mongo.Database, log zerolo
 		return
 	}
 
-	_, err = nc.Subscribe(repo.getTopic(&EventCreated{}), repo.handleEventCreated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventCreated{}), repo.handleEventCreated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventCreated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventUpdated{}), repo.handleEventUpdated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventUpdated{}), repo.handleEventUpdated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventUpdated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventDeleted{}), repo.handleEventDeleted)
+	_, err = nc.Subscribe(repo.GetTopic(&EventDeleted{}), repo.handleEventDeleted)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventDeleted: %w", err)
 		return
 	}
 
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryCreated{}), repo.handleEventMenuCategoryCreated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuCategoryCreated{}), repo.handleEventMenuCategoryCreated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuCategoryCreated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryUpdated{}), repo.handleEventMenuCategoryUpdated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuCategoryUpdated{}), repo.handleEventMenuCategoryUpdated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuCategoryUpdated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuCategoryDeleted{}), repo.handleEventMenuCategoryDeleted)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuCategoryDeleted{}), repo.handleEventMenuCategoryDeleted)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuCategoryDeleted: %w", err)
 		return
 	}
 
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemCreated{}), repo.handleEventMenuItemCreated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuItemCreated{}), repo.handleEventMenuItemCreated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuItemCreated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemUpdated{}), repo.handleEventMenuItemUpdated)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuItemUpdated{}), repo.handleEventMenuItemUpdated)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuItemUpdated: %w", err)
 		return
 	}
-	_, err = nc.Subscribe(repo.getTopic(&EventMenuItemDeleted{}), repo.handleEventMenuItemDeleted)
+	_, err = nc.Subscribe(repo.GetTopic(&EventMenuItemDeleted{}), repo.handleEventMenuItemDeleted)
 	if err != nil {
 		err = fmt.Errorf("cannot create subscription for EventMenuItemDeleted: %w", err)
 		return
@@ -93,11 +104,7 @@ func NewReadRepository(nc *nats.EncodedConn, mongoDB *mongo.Database, log zerolo
 	return
 }
 
-func (repo *ReadRepository) getTopic(event Event) string {
-	return fmt.Sprintf("%s.%s", event.EventCategory(), event.EventType())
-}
-
-func (repo *ReadRepository) applyEvent(event Event) (err error) {
+func (repo *ReadRepository) applyEvent(event events.Event) (err error) {
 	repo.log.Trace().
 		Str("event", event.EventType()).
 		Str("id", event.AggregateID()).
@@ -144,10 +151,10 @@ func (repo *ReadRepository) applyEvent(event Event) (err error) {
 }
 
 func (repo *ReadRepository) loadFromEventsStore() (err error) {
-	var aggregates []AggregateDB
+	var aggregates []events.AggregateDB
 	{
 		var cursor *mongo.Cursor
-		cursor, err = repo.eventsCollection.Find(context.Background(), bson.M{})
+		cursor, err = repo.eventsCollection.Find(context.Background(), bson.M{"category": "restaurant"})
 		if err != nil {
 			err = fmt.Errorf("cannot get events from store: %w", err)
 			return
@@ -159,7 +166,7 @@ func (repo *ReadRepository) loadFromEventsStore() (err error) {
 
 	for _, aggregate := range aggregates {
 		for _, eventDB := range aggregate.Events {
-			var event Event
+			var event events.Event
 
 			switch eventDB.Type {
 			case "created":
@@ -182,6 +189,9 @@ func (repo *ReadRepository) loadFromEventsStore() (err error) {
 				event = EventMenuItemUpdatedFromData(eventDB.Data)
 			case "menuitemdeleted":
 				event = EventMenuItemDeletedFromData(eventDB.Data)
+			default:
+				err = fmt.Errorf("unknown event for restaurant: %v", eventDB.Type)
+				return
 			}
 
 			err = repo.applyEvent(event)

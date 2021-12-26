@@ -27,11 +27,15 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/sveatlo/night_snack/internal/database"
+	"github.com/sveatlo/night_snack/internal/orders"
 	"github.com/sveatlo/night_snack/internal/restaurant"
 	"github.com/sveatlo/night_snack/internal/snacker"
 	"github.com/sveatlo/night_snack/internal/snacker/config"
+	"github.com/sveatlo/night_snack/internal/stock"
+	orders_pb "github.com/sveatlo/night_snack/proto/orders"
 	restaurant_pb "github.com/sveatlo/night_snack/proto/restaurant"
 	snacker_pb "github.com/sveatlo/night_snack/proto/snacker"
+	stock_pb "github.com/sveatlo/night_snack/proto/stock"
 )
 
 var (
@@ -242,8 +246,28 @@ func main() {
 		restaurant_pb.RegisterQueryServiceServer(s, restaurantQueryService)
 	}
 
+	stockService, err := stock.NewService(nec, mongo, metricsRegistry, appStatus, log)
+	if err != nil {
+		log.Error().Err(err).Msg("cannot create new restaurant service")
+		return
+	}
+	defer stockService.Close()
+	stockRegistrator := func(s *grpc.Server) {
+		stock_pb.RegisterStockServiceServer(s, stockService)
+	}
+
+	ordersService, err := orders.NewService(restaurantQueryService, stockService, nec, mongo, metricsRegistry, appStatus, log)
+	if err != nil {
+		log.Error().Err(err).Msg("cannot create new restaurant service")
+		return
+	}
+	defer ordersService.Close()
+	ordersRegistrator := func(s *grpc.Server) {
+		orders_pb.RegisterOrdersServiceServer(s, ordersService)
+	}
+
 	// HTTP gateway
-	gw, err := snacker.NewHTTP(snackerService, restaurantCommandService, restaurantQueryService, log)
+	gw, err := snacker.NewHTTP(snackerService, restaurantCommandService, restaurantQueryService, stockService, ordersService, log)
 	if err != nil {
 		log.Error().Err(err).Msg("cannot create http gateway")
 		return
@@ -269,6 +293,8 @@ func main() {
 		cadre.WithService("snacker.snacker", snackerRegistrator),
 		cadre.WithService("snacker.restaurant.command", restaurantCommandRegistrator),
 		cadre.WithService("snacker.restaurant.query", restaurantQueryRegistrator),
+		cadre.WithService("snacker.stock", stockRegistrator),
+		cadre.WithService("snacker.orders", ordersRegistrator),
 		cadre.WithLoggingOptions(logOptions),
 	}
 	if appConfig.ListenAddressChannelz != "" {
